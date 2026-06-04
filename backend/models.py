@@ -164,3 +164,28 @@ class AIConfigUpdate(BaseModel):
     model: Optional[str] = None
     api_key: Optional[str] = None
     system_prompt: Optional[str] = None
+    fallback_message: Optional[str] = None
+    fallback_button_text: Optional[str] = None
+    fallback_button_link: Optional[str] = None
+    show_raise_ticket: Optional[bool] = None
+
+
+# ── Password Reset ──
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+# ── Trained Answers ──
+class TrainedAnswerCreate(BaseModel):
+    question_pattern: str
+    answer: str
+    keywords: List[str] = []
+
+class TrainedAnswerUpdate(BaseModel):
+    question_pattern: Optional[str] = None
+    answer: Optional[str] = None
+    keywords: Optional[List[str]] = None

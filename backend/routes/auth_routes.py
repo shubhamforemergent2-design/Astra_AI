@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Response
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from database import db
-from models import UserCreate, LoginRequest
+from models import UserCreate, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
 from auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token,
@@ -10,6 +10,10 @@ from auth import (
 )
 import jwt
 import os
+import secrets
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -124,3 +128,49 @@ async def refresh(request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Refresh token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest):
+    email = body.email.strip().lower()
+    user = await db.users.find_one({"email": email})
+    # Always return success to prevent email enumeration
+    if not user:
+        return {"message": "If an account exists with this email, a reset link has been generated."}
+
+    token = secrets.token_urlsafe(32)
+    await db.password_reset_tokens.insert_one({
+        "user_id": str(user["_id"]),
+        "token": token,
+        "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+        "used": False,
+        "created_at": datetime.now(timezone.utc),
+    })
+    # Log reset link (no email service configured)
+    logger.info(f"Password reset token for {email}: {token}")
+    return {"message": "If an account exists with this email, a reset link has been generated.", "reset_token": token}
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest):
+    token_doc = await db.password_reset_tokens.find_one({"token": body.token, "used": False})
+    if not token_doc:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    expires_at = token_doc["expires_at"]
+    # MongoDB returns naive datetime; normalize to UTC-aware for comparison
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    await db.users.update_one(
+        {"_id": ObjectId(token_doc["user_id"])},
+        {"$set": {"password_hash": hash_password(body.new_password)}},
+    )
+    await db.password_reset_tokens.update_one(
+        {"_id": token_doc["_id"]},
+        {"$set": {"used": True}},
+    )
+    return {"message": "Password has been reset successfully"}

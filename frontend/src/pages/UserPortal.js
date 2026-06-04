@@ -41,6 +41,7 @@ export default function UserPortal() {
   const [feedbackDialog, setFeedbackDialog] = useState(null);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [fallbackConfig, setFallbackConfig] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -58,9 +59,10 @@ export default function UserPortal() {
     } catch {}
   }, []);
 
-  // Load announcements
+  // Load announcements + fallback config
   useEffect(() => {
     api.get("/admin/public/announcements").then(({ data }) => setAnnouncements(data)).catch(() => {});
+    api.get("/chat/fallback-config").then(({ data }) => setFallbackConfig(data)).catch(() => {});
   }, []);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
@@ -139,6 +141,7 @@ export default function UserPortal() {
       let fullContent = "";
       let msgId = "";
       let resources = [];
+      let fallback = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -155,6 +158,7 @@ export default function UserPortal() {
               } else if (data.type === "done") {
                 msgId = data.message_id;
                 resources = data.resources || [];
+                fallback = data.fallback || null;
               } else if (data.type === "error") {
                 fullContent = data.content;
                 setStreamContent(fullContent);
@@ -169,6 +173,7 @@ export default function UserPortal() {
         role: "assistant",
         content: fullContent,
         resource_refs: resources,
+        fallback: fallback,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -418,7 +423,7 @@ export default function UserPortal() {
                           )}
                         </div>
                         {/* Feedback Buttons */}
-                        <div className="flex items-center gap-1 px-1">
+                        <div className="flex items-center gap-1.5 px-1 flex-wrap">
                           {msg.feedback ? (
                             <span className="text-xs" style={{ color: '#64748B' }}>
                               {msg.feedback.is_helpful ? "Marked as helpful" : "Marked as not helpful"}
@@ -455,6 +460,24 @@ export default function UserPortal() {
                             </>
                           )}
                         </div>
+                        {/* Fallback: visible raise ticket button */}
+                        {msg.fallback?.show && msg.fallback?.show_raise_ticket && (
+                          <div className="px-1 mt-1" data-testid={`fallback-action-${idx}`}>
+                            <Button size="sm" variant="outline"
+                              className="gap-2 border-[#FF6B00] text-[#FF6B00] hover:bg-[#FFF0E5] font-medium"
+                              onClick={() => {
+                                if (msg.fallback.button_link) {
+                                  window.open(msg.fallback.button_link, "_blank");
+                                } else {
+                                  openTicketDialog(messages[idx - 1]?.content || "", msg.content);
+                                }
+                              }}
+                              data-testid={`fallback-ticket-btn-${idx}`}>
+                              <Ticket className="w-4 h-4" />
+                              {msg.fallback.button_text || "Raise Support Ticket"}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

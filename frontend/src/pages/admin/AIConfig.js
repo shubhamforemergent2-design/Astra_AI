@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Cpu, Save, Eye, EyeOff } from "lucide-react";
+import { Cpu, Save, Eye, EyeOff, AlertTriangle } from "lucide-react";
 
 const PROVIDERS = [
   { value: "openai", label: "OpenAI", models: ["gpt-5.2", "gpt-5.4", "gpt-4o", "gpt-4.1"] },
@@ -17,7 +18,10 @@ const PROVIDERS = [
 ];
 
 export default function AIConfig() {
-  const [config, setConfig] = useState({ provider: "openai", model: "gpt-5.2", api_key: "", system_prompt: "" });
+  const [config, setConfig] = useState({
+    provider: "openai", model: "gpt-5.2", api_key: "", system_prompt: "",
+    fallback_message: "", fallback_button_text: "", fallback_button_link: "", show_raise_ticket: true,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -29,6 +33,10 @@ export default function AIConfig() {
         model: data.model || "gpt-5.2",
         api_key: data.api_key || "",
         system_prompt: data.system_prompt || "",
+        fallback_message: data.fallback_message || "I couldn't find relevant information in our knowledge base for your question.",
+        fallback_button_text: data.fallback_button_text || "Raise Support Ticket",
+        fallback_button_link: data.fallback_button_link || "",
+        show_raise_ticket: data.show_raise_ticket !== false,
       }))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -47,17 +55,17 @@ export default function AIConfig() {
   };
 
   const currentProvider = PROVIDERS.find((p) => p.value === config.provider);
-
   if (loading) return <div className="text-[#64748B]">Loading...</div>;
 
   return (
     <div className="space-y-6" data-testid="ai-config">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: 'Outfit', color: '#0A101D' }}>AI Configuration</h1>
-        <p className="text-sm mt-1" style={{ color: '#64748B' }}>Configure the AI provider and model for Astra</p>
+        <p className="text-sm mt-1" style={{ color: '#64748B' }}>Configure the AI provider, model, and fallback behavior for Astra</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Provider & Model */}
         <Card className="border border-[#E2E8F0] bg-white">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2" style={{ fontFamily: 'Outfit' }}>
@@ -100,19 +108,60 @@ export default function AIConfig() {
           </CardContent>
         </Card>
 
+        {/* System Prompt */}
         <Card className="border border-[#E2E8F0] bg-white">
           <CardHeader>
             <CardTitle className="text-base" style={{ fontFamily: 'Outfit' }}>System Prompt</CardTitle>
-            <CardDescription>Custom instructions for Astra (prepended to default prompt)</CardDescription>
+            <CardDescription>Custom instructions prepended to Astra's default prompt</CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea value={config.system_prompt}
               onChange={(e) => setConfig((p) => ({ ...p, system_prompt: e.target.value }))}
-              placeholder="Add custom instructions for Astra here. These will be prepended to the default system prompt..."
+              placeholder="Add custom instructions for Astra here..."
               className="min-h-[200px]" data-testid="ai-system-prompt" />
           </CardContent>
         </Card>
       </div>
+
+      {/* Fallback Configuration */}
+      <Card className="border border-[#E2E8F0] bg-white">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2" style={{ fontFamily: 'Outfit' }}>
+            <AlertTriangle className="w-4 h-4 text-[#F59E0B]" /> Fallback Configuration
+          </CardTitle>
+          <CardDescription>Configure what users see when Astra can't find an answer in the knowledge base</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="md:col-span-2">
+              <Label className="mb-2 block">Fallback Message</Label>
+              <Textarea value={config.fallback_message}
+                onChange={(e) => setConfig((p) => ({ ...p, fallback_message: e.target.value }))}
+                placeholder="I couldn't find relevant information..."
+                className="min-h-[80px]" data-testid="fallback-message-input" />
+            </div>
+            <div>
+              <Label className="mb-2 block">Button Text</Label>
+              <Input value={config.fallback_button_text}
+                onChange={(e) => setConfig((p) => ({ ...p, fallback_button_text: e.target.value }))}
+                placeholder="Raise Support Ticket" data-testid="fallback-button-text-input" />
+            </div>
+            <div>
+              <Label className="mb-2 block">Button Link (optional)</Label>
+              <Input value={config.fallback_button_link}
+                onChange={(e) => setConfig((p) => ({ ...p, fallback_button_link: e.target.value }))}
+                placeholder="https://support.biziverse.com" data-testid="fallback-button-link-input" />
+              <p className="text-xs mt-1" style={{ color: '#64748B' }}>If empty, button will open the ticket dialog</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={config.show_raise_ticket}
+                onCheckedChange={(v) => setConfig((p) => ({ ...p, show_raise_ticket: v }))}
+                data-testid="fallback-show-ticket-switch" />
+              <Label>Show Raise Ticket button in fallback</Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center gap-3">
         <Button onClick={handleSave} disabled={saving} className="gap-2 text-white" style={{ background: '#FF6B00' }} data-testid="save-ai-config-button">

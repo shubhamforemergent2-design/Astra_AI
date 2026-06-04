@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -132,6 +133,11 @@ export default function LoginPage() {
                   data-testid="login-submit-button">
                   {loading ? "Signing in..." : "Sign In"}
                 </Button>
+                <div className="text-center">
+                  <Link to="/forgot-password" className="text-sm font-medium text-[#FF6B00] hover:underline" data-testid="forgot-password-link">
+                    Forgot password?
+                  </Link>
+                </div>
               </form>
             </TabsContent>
 

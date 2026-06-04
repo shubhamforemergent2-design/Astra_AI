@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import LoginPage from "@/pages/LoginPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import UserPortal from "@/pages/UserPortal";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import Dashboard from "@/pages/admin/Dashboard";
@@ -12,6 +14,8 @@ import UserManagement from "@/pages/admin/UserManagement";
 import AIConfig from "@/pages/admin/AIConfig";
 import AnnouncementManagement from "@/pages/admin/AnnouncementManagement";
 import TicketManagement from "@/pages/admin/TicketManagement";
+import GapAnalysis from "@/pages/admin/GapAnalysis";
+import TrainedAnswers from "@/pages/admin/TrainedAnswers";
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading } = useAuth();
@@ -46,6 +50,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/"
         element={
@@ -69,6 +75,8 @@ function AppRoutes() {
         <Route path="ai-config" element={<AIConfig />} />
         <Route path="announcements" element={<AnnouncementManagement />} />
         <Route path="tickets" element={<TicketManagement />} />
+        <Route path="gap-analysis" element={<GapAnalysis />} />
+        <Route path="trained-answers" element={<TrainedAnswers />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

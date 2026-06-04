@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Ticket, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Ticket, Clock, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
 
 const STATUS_CONFIG = {
   open: { label: "Open", color: "#FF6B00", icon: AlertCircle },
@@ -30,6 +30,15 @@ export default function TicketManagement() {
       load();
       toast.success(`Ticket marked as ${status}`);
     } catch { toast.error("Failed to update ticket"); }
+  };
+
+  const deleteTicket = async (id) => {
+    if (!window.confirm("Delete this ticket?")) return;
+    try {
+      await api.delete(`/admin/tickets/${id}`);
+      load();
+      toast.success("Ticket deleted");
+    } catch { toast.error("Failed to delete ticket"); }
   };
 
   const filtered = filter && filter !== "all" ? tickets.filter((t) => t.status === filter) : tickets;
@@ -114,16 +123,22 @@ export default function TicketManagement() {
                       {t.created_at ? new Date(t.created_at).toLocaleDateString() : "—"}
                     </TableCell>
                     <TableCell>
-                      <Select value={t.status} onValueChange={(v) => updateStatus(t._id, v)}>
-                        <SelectTrigger className="h-8 text-xs w-[120px]" data-testid={`ticket-status-${t._id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="open">Open</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-1">
+                        <Select value={t.status} onValueChange={(v) => updateStatus(t._id, v)}>
+                          <SelectTrigger className="h-8 text-xs w-[120px]" data-testid={`ticket-status-${t._id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => deleteTicket(t._id)}
+                          data-testid={`delete-ticket-${t._id}`}>
+                          <Trash2 className="w-3.5 h-3.5 text-[#EF4444]" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

@@ -53,6 +53,27 @@ async def startup():
     await db.knowledge_items.create_index([("module_id", 1)])
     await db.knowledge_items.create_index([("topic_id", 1)])
     await db.tickets.create_index([("user_id", 1)])
+    await db.unanswered_questions.create_index([("status", 1), ("asked_count", -1)])
+    await db.unanswered_questions.create_index("normalized")
+    await db.password_reset_tokens.create_index("token")
+
+    # Text indexes for optimized search (50K+ items)
+    try:
+        await db.knowledge_items.create_index(
+            [("title", "text"), ("question", "text"), ("keywords", "text"), ("explanation", "text")],
+            weights={"title": 10, "question": 10, "keywords": 8, "explanation": 3},
+            name="knowledge_text_search",
+        )
+    except Exception:
+        pass  # Index already exists
+    try:
+        await db.trained_answers.create_index(
+            [("question_pattern", "text"), ("keywords", "text")],
+            weights={"question_pattern": 10, "keywords": 5},
+            name="trained_answers_text_search",
+        )
+    except Exception:
+        pass
 
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@biziverse.com")
@@ -85,9 +106,24 @@ async def startup():
             "model": "gpt-5.2",
             "api_key": "",
             "system_prompt": "",
+            "fallback_message": "I couldn't find relevant information in our knowledge base for your question.",
+            "fallback_button_text": "Raise Support Ticket",
+            "fallback_button_link": "",
+            "show_raise_ticket": True,
             "created_at": datetime.now(timezone.utc),
         })
         logger.info("Default AI config seeded")
+    else:
+        # Ensure fallback fields exist in existing config
+        update_fields = {}
+        if "fallback_message" not in ai_config:
+            update_fields["fallback_message"] = "I couldn't find relevant information in our knowledge base for your question."
+        if "fallback_button_text" not in ai_config:
+            update_fields["fallback_button_text"] = "Raise Support Ticket"
+        if "show_raise_ticket" not in ai_config:
+            update_fields["show_raise_ticket"] = True
+        if update_fields:
+            await db.ai_config.update_one({"_id": ai_config["_id"]}, {"$set": update_fields})
 
     # Write test credentials
     creds_dir = Path("/app/memory")
