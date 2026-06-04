@@ -1,71 +1,44 @@
 # Astra - AI Knowledge Assistant for Biziverse
 
 ## Problem Statement
-Astra is an AI-powered Knowledge Assistant for Biziverse users to quickly understand features, learn workflows, resolve common issues, and access training materials. Reduces support tickets, improves self-service, and provides instant structured answers from approved knowledge.
+Astra is an AI-powered Knowledge Assistant for Biziverse users to quickly understand features, learn workflows, resolve common issues, and access training materials.
 
 ## Architecture
 - **Frontend**: React 19 + Tailwind CSS + Shadcn UI
 - **Backend**: FastAPI + MongoDB (motor async)
-- **AI**: OpenAI/Anthropic/Gemini via emergentintegrations (configurable from Admin)
-- **Auth**: JWT with httpOnly cookies + bcrypt password hashing + RBAC
+- **AI**: OpenAI/Anthropic/Gemini via emergentintegrations (configurable)
+- **Auth**: JWT httpOnly cookies + bcrypt + RBAC
 
-## User Personas
-1. **End User** - Asks questions, views history, submits feedback, creates tickets
-2. **Super Admin** - Full platform access (knowledge, users, AI config, analytics)
-3. **Knowledge Manager** - Manages knowledge base content
-4. **Support Manager** - Views conversations, tickets, feedback
-5. **Contributor** - Creates/edits knowledge items
+## What's Been Implemented
 
-## Core Requirements
-- User Portal: AI chat with structured responses, conversation history, feedback, tickets, announcements
-- Admin Portal: Dashboard analytics, knowledge CRUD (modules/topics/items), resource management, user & role management, AI configuration, announcement management, ticket management
-- Knowledge hierarchy: Modules > Topics > Knowledge Items with reference materials
-- Structured AI responses: Explanation, Steps, Suggestions, Reference Materials
-- RBAC: 5 roles with different permissions
+### Iteration 1 (June 4, 2026)
+- User Portal: AI chat streaming, conversation history, feedback, tickets, announcements
+- Admin Portal: Dashboard, knowledge CRUD, resource management, user management, AI config, announcements, tickets
+- JWT auth with brute force protection, 5 RBAC roles
 
-## What's Been Implemented (June 4, 2026)
-### Backend
-- JWT auth (login, register, logout, me, refresh) with bcrypt + brute force protection
-- Knowledge CRUD: modules, topics, knowledge items, resources with search
-- Chat: conversations, SSE streaming AI responses with knowledge base context
-- Feedback system (thumbs up/down with comments)
-- Support ticket creation and management
-- Announcements CRUD
-- User management with RBAC
-- AI configuration (provider/model/API key)
-- Analytics dashboard endpoint
-- Admin seed on startup
+### Iteration 2 (June 4, 2026)
+- Password reset flow (forgot password → token → reset)
+- Knowledge gap analysis (unanswered questions tracking, accept/reject/bulk delete)
+- AI optimization: MongoDB text indexes for 50K+ items, top 3 results only, compact context
+- Trained answers: Admin can set verified Q&A pairs (highest priority in AI responses)
+- Configurable fallback: Admin sets fallback message, button text, button link when AI has no answer
+- Visible "Raise Support Ticket" button on fallback responses
+- Natural AI responses (no forced Explanation/Steps/Suggestions headers)
+- Ticket delete functionality, latest 100 limit
+- "Made with Emergent" badge hidden
+- 33/33 backend tests passing, ~95% frontend E2E verified
 
-### Frontend
-- Professional login/register page with dark navy/orange/white design
-- User Portal: AI chat with streaming, conversation sidebar, feedback buttons, ticket creation, announcements
-- Admin Portal: Dashboard with stats, Knowledge Management (3-tab CRUD), Resource Management, User Management, AI Config, Announcement Management, Ticket Management
-- Design: Outfit + Manrope fonts, glass morphism header, animations
-
-### Testing
-- 20/20 backend tests passing
-- ~92% frontend flows verified (login, register, admin CRUD, chat, feedback, tickets)
+## Testing
+- 33 backend pytest tests (auth, knowledge, chat, admin, trained answers, gap analysis, password reset)
+- Frontend E2E: login, register, chat, feedback, tickets, admin CRUD, gap analysis, trained answers, fallback
 
 ## Prioritized Backlog
-### P0 (Critical)
-- [ ] Seed sample knowledge base data for demo
-- [ ] Password reset flow
+### P1
+- [ ] Seed demo knowledge base for immediate testing
+- [ ] Conversation management admin page
+- [ ] Enhanced analytics with charts
 
-### P1 (Important)
-- [ ] Conversation management admin page (view all conversations)
-- [ ] Advanced analytics with charts (Recharts)
-- [ ] Knowledge gap analysis (track unanswered questions)
-- [ ] Feedback analytics dashboard
-
-### P2 (Nice to Have)
-- [ ] Email-based password reset
-- [ ] Export analytics to CSV
+### P2
+- [ ] Email-based password reset (instead of token in response)
 - [ ] Bulk import knowledge items
-- [ ] Dark mode toggle
 - [ ] Mobile responsive improvements
-
-## Next Tasks
-1. Seed demo knowledge base data (Sales, Inventory, CRM modules with sample items)
-2. Add conversation management page for admin
-3. Enhanced analytics with charts
-4. Knowledge gap tracking

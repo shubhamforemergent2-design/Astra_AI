@@ -133,10 +133,15 @@
 }
 
 /* Hide platform badge */
+a[href*="emergent.sh"],
+a[href*="emergent.sh"] *,
 iframe[src*="emergent"],
 div[style*="position: fixed"][style*="bottom"][style*="right"] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
