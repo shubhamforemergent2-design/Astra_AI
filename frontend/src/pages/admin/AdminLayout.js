@@ -3,14 +3,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   LayoutDashboard, BookOpen, FolderOpen, Users, Cpu,
-  Megaphone, Ticket, Sparkles, ArrowLeft, LogOut, HelpCircle, GraduationCap
+  Megaphone, Ticket, Sparkles, ArrowLeft, LogOut, HelpCircle, MessageSquare
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/knowledge", label: "Knowledge Base", icon: BookOpen },
   { to: "/admin/resources", label: "Resources", icon: FolderOpen },
-  { to: "/admin/trained-answers", label: "Trained Answers", icon: GraduationCap },
+  { to: "/admin/conversations", label: "Conversations", icon: MessageSquare },
   { to: "/admin/gap-analysis", label: "Knowledge Gaps", icon: HelpCircle },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/ai-config", label: "AI Config", icon: Cpu },

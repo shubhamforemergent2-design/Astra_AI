@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Cpu, Save, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { Cpu, Save, Eye, EyeOff, AlertTriangle, Lightbulb } from "lucide-react";
 
 const PROVIDERS = [
   { value: "openai", label: "OpenAI", models: ["gpt-5.2", "gpt-5.4", "gpt-4o", "gpt-4.1"] },
@@ -21,6 +21,7 @@ export default function AIConfig() {
   const [config, setConfig] = useState({
     provider: "openai", model: "gpt-5.2", api_key: "", system_prompt: "",
     fallback_message: "", fallback_button_text: "", fallback_button_link: "", show_raise_ticket: true,
+    enable_suggestions: true, max_suggestions: 3, confidence_threshold: 1.5,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +38,9 @@ export default function AIConfig() {
         fallback_button_text: data.fallback_button_text || "Raise Support Ticket",
         fallback_button_link: data.fallback_button_link || "",
         show_raise_ticket: data.show_raise_ticket !== false,
+        enable_suggestions: data.enable_suggestions !== false,
+        max_suggestions: data.max_suggestions || 3,
+        confidence_threshold: data.confidence_threshold || 1.5,
       }))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -158,6 +162,39 @@ export default function AIConfig() {
                 onCheckedChange={(v) => setConfig((p) => ({ ...p, show_raise_ticket: v }))}
                 data-testid="fallback-show-ticket-switch" />
               <Label>Show Raise Ticket button in fallback</Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Suggestion Configuration */}
+      <Card className="border border-[#E2E8F0] bg-white">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2" style={{ fontFamily: 'Outfit' }}>
+            <Lightbulb className="w-4 h-4 text-[#3B82F6]" /> Smart Suggestions
+          </CardTitle>
+          <CardDescription>When Astra isn't confident, suggest relevant KB questions instead of answering</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="flex items-center gap-3">
+              <Switch checked={config.enable_suggestions}
+                onCheckedChange={(v) => setConfig((p) => ({ ...p, enable_suggestions: v }))}
+                data-testid="enable-suggestions-switch" />
+              <Label>Enable question suggestions</Label>
+            </div>
+            <div>
+              <Label className="mb-2 block">Max Suggestions (1-5)</Label>
+              <Input type="number" min={1} max={5} value={config.max_suggestions}
+                onChange={(e) => setConfig((p) => ({ ...p, max_suggestions: parseInt(e.target.value) || 3 }))}
+                data-testid="max-suggestions-input" />
+            </div>
+            <div>
+              <Label className="mb-2 block">Confidence Threshold</Label>
+              <Input type="number" step="0.1" min={0.5} max={5} value={config.confidence_threshold}
+                onChange={(e) => setConfig((p) => ({ ...p, confidence_threshold: parseFloat(e.target.value) || 1.5 }))}
+                data-testid="confidence-threshold-input" />
+              <p className="text-xs mt-1" style={{ color: '#64748B' }}>Higher = stricter matching. AI only answers above this score.</p>
             </div>
           </div>
         </CardContent>

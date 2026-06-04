@@ -117,11 +117,17 @@ async def startup():
         # Ensure fallback fields exist in existing config
         update_fields = {}
         if "fallback_message" not in ai_config:
-            update_fields["fallback_message"] = "I couldn't find relevant information in our knowledge base for your question."
+            update_fields["fallback_message"] = "Answer Not Found!"
         if "fallback_button_text" not in ai_config:
             update_fields["fallback_button_text"] = "Raise Support Ticket"
         if "show_raise_ticket" not in ai_config:
             update_fields["show_raise_ticket"] = True
+        if "enable_suggestions" not in ai_config:
+            update_fields["enable_suggestions"] = True
+        if "max_suggestions" not in ai_config:
+            update_fields["max_suggestions"] = 3
+        if "confidence_threshold" not in ai_config:
+            update_fields["confidence_threshold"] = 1.5
         if update_fields:
             await db.ai_config.update_one({"_id": ai_config["_id"]}, {"$set": update_fields})
 

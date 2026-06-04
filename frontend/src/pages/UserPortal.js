@@ -142,6 +142,7 @@ export default function UserPortal() {
       let msgId = "";
       let resources = [];
       let fallback = null;
+      let suggestions = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -155,10 +156,18 @@ export default function UserPortal() {
               if (data.type === "token") {
                 fullContent += data.content;
                 setStreamContent(fullContent);
+              } else if (data.type === "fallback") {
+                fullContent = data.message;
+                setStreamContent(fullContent);
+              } else if (data.type === "suggestions") {
+                suggestions = data.questions || [];
+                fullContent = data.message;
+                setStreamContent(fullContent);
               } else if (data.type === "done") {
                 msgId = data.message_id;
                 resources = data.resources || [];
                 fallback = data.fallback || null;
+                if (data.suggestions) suggestions = data.suggestions;
               } else if (data.type === "error") {
                 fullContent = data.content;
                 setStreamContent(fullContent);
@@ -174,6 +183,7 @@ export default function UserPortal() {
         content: fullContent,
         resource_refs: resources,
         fallback: fallback,
+        suggestions: suggestions,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -405,6 +415,20 @@ export default function UserPortal() {
                           <div className="chat-message-content text-sm" style={{ color: '#334155' }}>
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                           </div>
+                          {/* Suggestion buttons */}
+                          {msg.suggestions && msg.suggestions.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-[#E2E8F0] space-y-2" data-testid={`suggestions-${idx}`}>
+                              {msg.suggestions.map((q, si) => (
+                                <button key={si} onClick={() => sendMessage(q)}
+                                  className="block w-full text-left px-3 py-2.5 rounded-lg border border-[#E2E8F0] bg-white hover:border-[#FF6B00] hover:bg-[#FFF0E5] transition-all duration-200 text-sm font-medium"
+                                  style={{ color: '#334155' }}
+                                  data-testid={`suggestion-btn-${idx}-${si}`}>
+                                  <ChevronRight className="w-3.5 h-3.5 inline-block mr-1.5 text-[#FF6B00]" />
+                                  {q}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           {/* Resources */}
                           {msg.resource_refs && msg.resource_refs.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-[#E2E8F0]">

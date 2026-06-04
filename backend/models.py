@@ -168,6 +168,9 @@ class AIConfigUpdate(BaseModel):
     fallback_button_text: Optional[str] = None
     fallback_button_link: Optional[str] = None
     show_raise_ticket: Optional[bool] = None
+    enable_suggestions: Optional[bool] = None
+    max_suggestions: Optional[int] = None
+    confidence_threshold: Optional[float] = None
 
 
 # ── Password Reset ──

@@ -15,7 +15,7 @@ import AIConfig from "@/pages/admin/AIConfig";
 import AnnouncementManagement from "@/pages/admin/AnnouncementManagement";
 import TicketManagement from "@/pages/admin/TicketManagement";
 import GapAnalysis from "@/pages/admin/GapAnalysis";
-import TrainedAnswers from "@/pages/admin/TrainedAnswers";
+import ConversationManagement from "@/pages/admin/ConversationManagement";
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading } = useAuth();
@@ -76,7 +76,7 @@ function AppRoutes() {
         <Route path="announcements" element={<AnnouncementManagement />} />
         <Route path="tickets" element={<TicketManagement />} />
         <Route path="gap-analysis" element={<GapAnalysis />} />
-        <Route path="trained-answers" element={<TrainedAnswers />} />
+        <Route path="conversations" element={<ConversationManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

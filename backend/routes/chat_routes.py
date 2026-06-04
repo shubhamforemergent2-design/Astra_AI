@@ -26,76 +26,54 @@ def serialize(doc):
     return doc
 
 
-async def find_trained_answer(query: str):
-    """Check trained answers first - highest priority."""
-    try:
-        results = await db.trained_answers.find(
-            {"$text": {"$search": query}},
-            {"score": {"$meta": "textScore"}},
-        ).sort([("score", {"$meta": "textScore"})]).limit(1).to_list(1)
-        if results and results[0].get("score", 0) > 1.0:
-            return results[0]
-    except Exception:
-        # Fallback: keyword overlap matching
-        words = set(w.lower() for w in query.split() if len(w) > 2)
-        if not words:
-            return None
-        cursor = db.trained_answers.find()
-        best, best_score = None, 0
-        async for ta in cursor:
-            ta_words = set(k.lower() for k in ta.get("keywords", []))
-            ta_words.update(w.lower() for w in ta.get("question_pattern", "").split() if len(w) > 2)
-            overlap = len(words & ta_words)
-            if overlap > best_score:
-                best, best_score = ta, overlap
-        if best_score >= 2:
-            return best
-    return None
-
-
 async def search_knowledge_base(query: str):
-    """Optimized search using MongoDB text index. Falls back to regex for small DBs."""
+    """Optimized search with scores. Returns (items, max_score)."""
     try:
         results = await db.knowledge_items.find(
             {"$text": {"$search": query}},
             {"score": {"$meta": "textScore"}},
-        ).sort([("score", {"$meta": "textScore"})]).limit(3).to_list(3)
+        ).sort([("score", {"$meta": "textScore"})]).limit(5).to_list(5)
         if results:
-            return results
+            max_score = max(r.get("score", 0) for r in results)
+            return results, max_score
     except Exception:
         pass
 
-    # Fallback: regex search (for when text index not ready)
-    words = [w for w in query.lower().split() if len(w) > 2]
+    # Fallback regex
+    stop_words = {"the", "how", "what", "when", "where", "which", "does", "can", "will",
+                  "are", "was", "been", "being", "have", "has", "had", "for", "and", "but",
+                  "not", "you", "all", "this", "that", "with", "from", "do", "is", "it", "to", "in", "of", "a", "an"}
+    words = [w for w in query.lower().split() if len(w) > 2 and w not in stop_words][:5]
     if not words:
-        return []
-    # Use only top 5 most significant words (skip common ones)
-    stop_words = {"the", "how", "what", "when", "where", "which", "does", "can", "will", "are", "was", "been", "being", "have", "has", "had", "for", "and", "but", "not", "you", "all", "this", "that", "with", "from"}
-    words = [w for w in words if w not in stop_words][:5]
-    if not words:
-        return []
+        return [], 0
     conditions = []
     for word in words:
         escaped = re.escape(word)
-        conditions.append({
-            "$or": [
-                {"keywords": {"$regex": escaped, "$options": "i"}},
-                {"title": {"$regex": escaped, "$options": "i"}},
-                {"question": {"$regex": escaped, "$options": "i"}},
-            ]
-        })
-    items = await db.knowledge_items.find({"$or": conditions}).limit(3).to_list(3)
-    return items
+        conditions.append({"$or": [
+            {"keywords": {"$regex": escaped, "$options": "i"}},
+            {"title": {"$regex": escaped, "$options": "i"}},
+            {"question": {"$regex": escaped, "$options": "i"}},
+        ]})
+    items = await db.knowledge_items.find({"$or": conditions}).limit(5).to_list(5)
+    # Assign a rough score based on field matches
+    for item in items:
+        score = 0
+        for w in words:
+            wl = w.lower()
+            if any(wl in k.lower() for k in item.get("keywords", [])):
+                score += 2
+            if wl in item.get("title", "").lower():
+                score += 1.5
+            if wl in item.get("question", "").lower():
+                score += 1.5
+        item["score"] = score
+    items.sort(key=lambda x: x.get("score", 0), reverse=True)
+    max_score = items[0].get("score", 0) if items else 0
+    return items, max_score
 
 
-def build_knowledge_context(items, trained_answer=None):
-    """Build compact context for AI - optimized for token usage."""
-    if trained_answer:
-        return f"TRAINED ANSWER (use this as primary source):\nQ: {trained_answer.get('question_pattern', '')}\nA: {trained_answer.get('answer', '')}"
-
-    if not items:
-        return "NO RELEVANT KNOWLEDGE FOUND. Tell the user you don't have information about this in the knowledge base."
-
+def build_knowledge_context(items):
+    """Build compact context for AI."""
     parts = []
     for item in items:
         lines = [f"[{item.get('title', '')}]"]
@@ -106,32 +84,34 @@ def build_knowledge_context(items, trained_answer=None):
         if item.get("suggestions"):
             lines.append("Tips: " + " | ".join(item["suggestions"]))
         parts.append("\n".join(lines))
-    return "KNOWLEDGE BASE:\n\n" + "\n---\n".join(parts)
+    return "KNOWLEDGE BASE CONTEXT:\n\n" + "\n---\n".join(parts)
+
+
+SYSTEM_PROMPT_BASE = """You are Astra, the AI Knowledge Assistant for Biziverse.
+
+ABSOLUTE RULES — FOLLOW STRICTLY:
+1. Answer ONLY using the provided KNOWLEDGE BASE CONTEXT below. Nothing else.
+2. Do NOT add any information not explicitly present in the context.
+3. Do NOT speculate, guess, or make assumptions about Biziverse features.
+4. Do NOT say "typically", "usually", "I believe", or "you might want to check".
+5. Do NOT suggest the user share screenshots or look for things yourself.
+6. Do NOT offer to help identify things outside the provided context.
+7. Present ONLY what the context contains — clearly, concisely, and accurately.
+8. If the context has steps, present them as numbered steps.
+9. If the context has tips or suggestions, include them naturally.
+10. Mention reference materials at the end only if they exist in the context.
+11. Do NOT use forced section headers like "Explanation:" or "Steps:" — write naturally.
+12. Keep the answer focused and practical."""
 
 
 def build_system_prompt(context: str, custom_prompt: str = "") -> str:
-    base = """You are Astra, the AI Knowledge Assistant for Biziverse. You help users with features, workflows, troubleshooting, and training materials.
-
-Rules:
-- Answer ONLY from the provided knowledge base context
-- If a TRAINED ANSWER is provided, use it as your primary response source
-- Present step-by-step procedures as numbered steps when appropriate
-- Include practical tips naturally when available
-- Do NOT use forced section headers like "Explanation:", "Steps:", "Suggestions:" — write naturally
-- Do NOT invent procedures, features, or workflows not present in the context
-- Do NOT ask users to share screenshots or offer to help identify things outside the knowledge base
-- If no relevant information is found, respond briefly: say you don't have this information and suggest raising a support ticket
-- Keep responses concise, professional, and actionable
-- Mention reference materials (videos/PPTs/docs) at the end if they exist in context"""
-
+    prompt = SYSTEM_PROMPT_BASE
     if custom_prompt:
-        base = custom_prompt + "\n\n" + base
-
-    return base + "\n\n" + context
+        prompt = custom_prompt + "\n\n" + prompt
+    return prompt + "\n\n" + context
 
 
 async def track_unanswered(query: str, user_id: str, conv_id: str):
-    """Track questions with no knowledge base matches for gap analysis."""
     normalized = query.strip().lower()
     existing = await db.unanswered_questions.find_one({"normalized": normalized, "status": "pending"})
     if existing:
@@ -169,6 +149,7 @@ async def create_conversation(body: ConversationCreate, request: Request):
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
         "is_escalated": False,
+        "review_status": "pending",
     }
     result = await db.conversations.insert_one(doc)
     doc["_id"] = result.inserted_id
@@ -205,20 +186,19 @@ async def delete_conversation(conv_id: str, request: Request):
     return {"message": "Deleted"}
 
 
-# ── Get fallback config (public for user portal) ──
 @router.get("/fallback-config")
 async def get_fallback_config(request: Request):
     await get_current_user(request)
     ai_config = await db.ai_config.find_one({}) or {}
     return {
-        "fallback_message": ai_config.get("fallback_message", "I couldn't find relevant information in our knowledge base for your question."),
+        "fallback_message": ai_config.get("fallback_message", "Answer Not Found!"),
         "fallback_button_text": ai_config.get("fallback_button_text", "Raise Support Ticket"),
         "fallback_button_link": ai_config.get("fallback_button_link", ""),
         "show_raise_ticket": ai_config.get("show_raise_ticket", True),
     }
 
 
-# ── Messages (with AI streaming) ──
+# ── Messages (ZERO HALLUCINATION AI) ──
 @router.post("/conversations/{conv_id}/messages")
 async def send_message(conv_id: str, body: MessageCreate, request: Request):
     user = await get_current_user(request)
@@ -233,33 +213,86 @@ async def send_message(conv_id: str, body: MessageCreate, request: Request):
         "content": body.content,
         "created_at": datetime.now(timezone.utc),
     }
-    user_msg_result = await db.messages.insert_one(user_msg)
-
-    # Check trained answers first
-    trained_answer = await find_trained_answer(body.content)
-
-    # Search knowledge base (only if no trained answer)
-    knowledge_items = []
-    if not trained_answer:
-        knowledge_items = await search_knowledge_base(body.content)
-
-    has_knowledge = bool(trained_answer or knowledge_items)
-    context = build_knowledge_context(knowledge_items, trained_answer)
-
-    # Track unanswered questions
-    if not has_knowledge:
-        await track_unanswered(body.content, user["_id"], conv_id)
+    await db.messages.insert_one(user_msg)
 
     # Get AI config
     ai_config = await db.ai_config.find_one({}) or {}
+    confidence_threshold = ai_config.get("confidence_threshold", 1.5)
+    enable_suggestions = ai_config.get("enable_suggestions", True)
+    max_suggestions = ai_config.get("max_suggestions", 3)
+
+    # Search knowledge base
+    knowledge_items, max_score = await search_knowledge_base(body.content)
+
+    # Get fallback config
+    fallback_message = ai_config.get("fallback_message", "Answer Not Found!")
+    fallback_button_text = ai_config.get("fallback_button_text", "Raise Support Ticket")
+    fallback_button_link = ai_config.get("fallback_button_link", "")
+    show_raise_ticket = ai_config.get("show_raise_ticket", True)
+
+    # ── CASE 1: NO MATCH → Return fallback directly, NO AI CALL ──
+    if not knowledge_items:
+        await track_unanswered(body.content, user["_id"], conv_id)
+
+        assistant_msg = {
+            "conversation_id": conv_id, "role": "assistant",
+            "content": fallback_message, "has_knowledge": False,
+            "created_at": datetime.now(timezone.utc),
+        }
+        result = await db.messages.insert_one(assistant_msg)
+        msg_count = await db.messages.count_documents({"conversation_id": conv_id})
+        update_fields = {"updated_at": datetime.now(timezone.utc)}
+        if msg_count <= 2:
+            update_fields["title"] = body.content[:60] + ("..." if len(body.content) > 60 else "")
+        await db.conversations.update_one({"_id": ObjectId(conv_id)}, {"$set": update_fields})
+
+        async def fallback_generator():
+            yield f"data: {json.dumps({'type': 'fallback', 'message': fallback_message})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'message_id': str(result.inserted_id), 'resources': [], 'fallback': {'show': True, 'message': fallback_message, 'button_text': fallback_button_text, 'button_link': fallback_button_link, 'show_raise_ticket': show_raise_ticket}})}\n\n"
+
+        return StreamingResponse(fallback_generator(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # ── CASE 2: LOW CONFIDENCE → Show suggestions, NO AI CALL ──
+    if max_score < confidence_threshold and enable_suggestions:
+        suggestions = []
+        for item in knowledge_items[:max_suggestions]:
+            q = item.get("question") or item.get("title", "")
+            if q and q not in suggestions:
+                suggestions.append(q)
+
+        if suggestions:
+            suggestion_text = "I found some related topics in our knowledge base. Are you asking about one of these?"
+            assistant_msg = {
+                "conversation_id": conv_id, "role": "assistant",
+                "content": suggestion_text, "suggestions": suggestions,
+                "has_knowledge": False, "created_at": datetime.now(timezone.utc),
+            }
+            result = await db.messages.insert_one(assistant_msg)
+            msg_count = await db.messages.count_documents({"conversation_id": conv_id})
+            update_fields = {"updated_at": datetime.now(timezone.utc)}
+            if msg_count <= 2:
+                update_fields["title"] = body.content[:60] + ("..." if len(body.content) > 60 else "")
+            await db.conversations.update_one({"_id": ObjectId(conv_id)}, {"$set": update_fields})
+
+            async def suggestion_generator():
+                yield f"data: {json.dumps({'type': 'suggestions', 'questions': suggestions, 'message': suggestion_text})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'message_id': str(result.inserted_id), 'resources': [], 'suggestions': suggestions})}\n\n"
+
+            return StreamingResponse(suggestion_generator(), media_type="text/event-stream",
+                                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # ── CASE 3: HIGH CONFIDENCE → Call AI with strict context ──
     provider = ai_config.get("provider", "openai")
     model = ai_config.get("model", "gpt-5.2")
     api_key = ai_config.get("api_key") or os.environ.get("EMERGENT_LLM_KEY", "")
     custom_prompt = ai_config.get("system_prompt", "")
 
-    # Get resource refs for knowledge items
+    # Only use top 3 highest scoring items
+    top_items = sorted(knowledge_items, key=lambda x: x.get("score", 0), reverse=True)[:3]
+
     resource_refs = []
-    for item in knowledge_items:
+    for item in top_items:
         if item.get("resource_ids"):
             resources = await db.resources.find(
                 {"_id": {"$in": [ObjectId(rid) for rid in item["resource_ids"]]}}
@@ -269,35 +302,24 @@ async def send_message(conv_id: str, body: MessageCreate, request: Request):
                 if ref not in resource_refs:
                     resource_refs.append(ref)
 
+    context = build_knowledge_context(top_items)
     system_prompt = build_system_prompt(context, custom_prompt)
     if resource_refs:
-        refs_text = "\n\nReference Materials:\n" + "\n".join(
+        system_prompt += "\n\nReference Materials:\n" + "\n".join(
             f"- [{r['type'].upper()}] {r['title']}" + (f" ({r['url']})" if r['url'] else "")
             for r in resource_refs
         )
-        system_prompt += refs_text
 
-    # Build fallback config
-    fallback_data = None
-    if not has_knowledge:
-        fallback_data = {
-            "show": True,
-            "message": ai_config.get("fallback_message", "I couldn't find relevant information in our knowledge base for your question."),
-            "button_text": ai_config.get("fallback_button_text", "Raise Support Ticket"),
-            "button_link": ai_config.get("fallback_button_link", ""),
-            "show_raise_ticket": ai_config.get("show_raise_ticket", True),
-        }
-
-    async def event_generator():
+    async def ai_generator():
         full_response = ""
-        knowledge_ids = [str(i["_id"]) for i in knowledge_items]
+        knowledge_ids = [str(i["_id"]) for i in top_items]
 
         try:
             from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
             chat = LlmChat(
                 api_key=api_key,
-                session_id=f"astra-{conv_id}-{str(user_msg_result.inserted_id)}",
+                session_id=f"astra-{conv_id}-{datetime.now(timezone.utc).timestamp()}",
                 system_message=system_prompt,
             )
             chat.with_model(provider, model)
@@ -312,42 +334,27 @@ async def send_message(conv_id: str, body: MessageCreate, request: Request):
 
         except Exception as e:
             logger.error(f"AI Error: {e}")
-            full_response = "I'm having trouble generating a response right now. Please try again or raise a support ticket for assistance."
+            full_response = "I'm having trouble generating a response. Please try again or raise a support ticket."
             yield f"data: {json.dumps({'type': 'token', 'content': full_response})}\n\n"
 
-        # Save assistant message
         assistant_msg = {
-            "conversation_id": conv_id,
-            "role": "assistant",
-            "content": full_response,
-            "knowledge_item_ids": knowledge_ids,
-            "resource_refs": resource_refs,
-            "has_knowledge": has_knowledge,
+            "conversation_id": conv_id, "role": "assistant",
+            "content": full_response, "knowledge_item_ids": knowledge_ids,
+            "resource_refs": resource_refs, "has_knowledge": True,
             "created_at": datetime.now(timezone.utc),
         }
         result = await db.messages.insert_one(assistant_msg)
 
-        # Update conversation title and timestamp
         msg_count = await db.messages.count_documents({"conversation_id": conv_id})
         update_fields = {"updated_at": datetime.now(timezone.utc)}
         if msg_count <= 2:
             update_fields["title"] = body.content[:60] + ("..." if len(body.content) > 60 else "")
         await db.conversations.update_one({"_id": ObjectId(conv_id)}, {"$set": update_fields})
 
-        done_data = {
-            "type": "done",
-            "message_id": str(result.inserted_id),
-            "resources": resource_refs,
-        }
-        if fallback_data:
-            done_data["fallback"] = fallback_data
-        yield f"data: {json.dumps(done_data)}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'message_id': str(result.inserted_id), 'resources': resource_refs})}\n\n"
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return StreamingResponse(ai_generator(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 # ── Feedback ──
@@ -362,12 +369,9 @@ async def submit_feedback(body: FeedbackCreate, request: Request):
         )
         return {"message": "Feedback updated"}
     doc = {
-        "message_id": body.message_id,
-        "conversation_id": body.conversation_id,
-        "user_id": user["_id"],
-        "is_helpful": body.is_helpful,
-        "comment": body.comment,
-        "created_at": datetime.now(timezone.utc),
+        "message_id": body.message_id, "conversation_id": body.conversation_id,
+        "user_id": user["_id"], "is_helpful": body.is_helpful,
+        "comment": body.comment, "created_at": datetime.now(timezone.utc),
     }
     await db.feedback.insert_one(doc)
     return {"message": "Feedback submitted"}
@@ -378,23 +382,15 @@ async def submit_feedback(body: FeedbackCreate, request: Request):
 async def create_ticket(body: TicketCreate, request: Request):
     user = await get_current_user(request)
     doc = {
-        "user_id": user["_id"],
-        "user_email": user["email"],
-        "user_name": user.get("name", ""),
-        "question": body.question,
-        "ai_response": body.ai_response,
-        "conversation_id": body.conversation_id,
-        "status": "open",
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
+        "user_id": user["_id"], "user_email": user["email"],
+        "user_name": user.get("name", ""), "question": body.question,
+        "ai_response": body.ai_response, "conversation_id": body.conversation_id,
+        "status": "open", "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc),
     }
     result = await db.tickets.insert_one(doc)
     doc["_id"] = result.inserted_id
     if body.conversation_id:
-        await db.conversations.update_one(
-            {"_id": ObjectId(body.conversation_id)},
-            {"$set": {"is_escalated": True}},
-        )
+        await db.conversations.update_one({"_id": ObjectId(body.conversation_id)}, {"$set": {"is_escalated": True}})
     return serialize(doc)
 
 
