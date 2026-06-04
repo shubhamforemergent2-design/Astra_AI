@@ -1,0 +1,108 @@
+{
+  "project_name": "Astra - AI Knowledge Assistant for Biziverse",
+  "theme": "Light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) adapted for Corporate Enterprise",
+  "mood": "Professional, Trustworthy, Efficient, Clear",
+  "colors": {
+    "background": {
+      "primary": "#FFFFFF",
+      "secondary": "#F8FAFC",
+      "tertiary": "#F1F5F9"
+    },
+    "text": {
+      "primary": "#0B1120",
+      "secondary": "#334155",
+      "tertiary": "#64748B"
+    },
+    "brand": {
+      "primary": "#FF6B00",
+      "primary_hover": "#E66000",
+      "primary_light": "#FFF0E5"
+    },
+    "structural": {
+      "navy_dark": "#0A101D",
+      "navy_medium": "#0F172A",
+      "border": "#E2E8F0",
+      "border_hover": "#CBD5E1"
+    },
+    "status": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "headings": "'Outfit', sans-serif",
+      "body": "'Manrope', sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "sizing": {
+      "h1": "text-4xl sm:text-5xl tracking-tight font-bold text-navy_dark",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-semibold text-navy_dark",
+      "h3": "text-xl sm:text-2xl tracking-tight font-medium text-navy_dark",
+      "h4": "text-lg sm:text-xl font-medium text-navy_medium",
+      "body": "text-base leading-relaxed text-secondary",
+      "small": "text-sm text-tertiary",
+      "overline": "text-xs font-bold uppercase tracking-[0.2em] text-tertiary"
+    }
+  },
+  "layout_and_spacing": {
+    "spacing_scale": "Use generous spacing. Tailwind scale: p-4, p-6, p-8 for inner card paddings. p-12 or p-16 for section spacing.",
+    "grids": {
+      "dashboard_admin": "The 'Control Room' Grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4. Tight gaps (gap-4 to gap-6). Use h-full on children.",
+      "user_portal": "The 'Bento' Grid: grid-cols-1 md:grid-cols-12 gap-8. AI Chat takes col-span-8, side panels (announcements, reference) take col-span-4."
+    },
+    "alignment": "Optical alignment over geometrical. Left-align dense content and inputs. Center hero headings only if it balances the layout."
+  },
+  "surface_strategies": {
+    "headers": "Crystal Glass: bg-white/70 backdrop-blur-xl border-b border-slate-200/50. 1px delicate inner stroke.",
+    "dashboard_cards": "Grid Borders or Flat Solid: Flat white background, 1px subtle border (border-slate-200), NO default shadow. On hover: -translate-y-1, shadow-lg, border-slate-300.",
+    "ai_chat_bubbles": "User: bg-navy_dark text-white rounded-2xl rounded-tr-sm. AI: bg-secondary border border-border text-primary rounded-2xl rounded-tl-sm. Reference items: bg-white border border-border shadow-sm."
+  },
+  "components_strategy": {
+    "general": "Use Shadcn UI for tables, calendars, select, dropdowns, dialogs, tabs.",
+    "forms": "Use Shadcn Form, Input, Select. Never use native inputs without styling. Left-align labels.",
+    "buttons": "Primary CTA: bg-[#FF6B00] text-white hover:bg-[#E66000]. Secondary: bg-white border border-slate-200 text-navy_dark hover:bg-slate-50.",
+    "charts": "Use Recharts or Shadcn Charts for Admin Dashboard analytics. Ensure tooltips use dark navy backgrounds with white text for contrast.",
+    "icons": "Use lucide-react (default) or @phosphor-icons/react for premium duotone look."
+  },
+  "motion_and_interaction": {
+    "hover_states": "All interactive elements must explicitly change state. e.g., hover:bg-slate-50.",
+    "transitions": "Use specific transition properties. e.g., transition-all duration-200 ease-in-out.",
+    "animations": "Framer Motion for entrance. Staggered list animations for knowledge base items and chat messages.",
+    "accessibility": "Respect prefers-reduced-motion. Ensure focus states have high contrast ring (focus:ring-2 focus:ring-[#FF6B00])."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1517816743773-6e0fd518b4a6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMHdoaXRlJTIwYXJjaGl0ZWN0dXJlJTIwbWluaW1hbHxlbnwwfHx8fDE3ODA1NTcxNzl8MA&ixlib=rb-4.1.0&q=85",
+        "category": "background",
+        "description": "Abstract white minimal architecture. Good for login page background or subtle hero background overlay."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1690378820474-b468b8ee64d3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBvZmZpY2UlMjB0ZWFtd29ya3xlbnwwfHx8fDE3ODA1NTcxNzl8MA&ixlib=rb-4.1.0&q=85",
+        "category": "announcement_banner",
+        "description": "Professional office teamwork. Good for default announcement banners or knowledge base module thumbnails."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1572021335469-31706a17aaef?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBvZmZpY2UlMjB0ZWFtd29ya3xlbnwwfHx8fDE3ODA1NTcxNzl8MA&ixlib=rb-4.1.0&q=85",
+        "category": "placeholder_thumbnail",
+        "description": "Coworkers smiling around laptop. Good for resource thumbnails (videos/PPTs)."
+      }
+    ],
+    "handling": "Never use placeholder text URLs. Use the provided Unsplash URLs. Use gradient overlays to ensure text readability if placing text over images."
+  },
+  "testing": {
+    "attributes": "All interactive and key informational elements MUST include a data-testid attribute (e.g., data-testid='login-button', data-testid='chat-submit')."
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the color palette: White background, Dark Navy text/structural elements, Royal Orange for primary CTAs.",
+    "Implement the Layout rules: Bento grid for User Portal, Control Room grid for Admin Portal.",
+    "Use Shadcn UI extensively but customize the border radius and padding to feel generous and premium.",
+    "Install and use 'Outfit' and 'Manrope' fonts from Google Fonts.",
+    "Ensure the AI Chat interface looks distinct from typical chat apps by incorporating structured response areas (Explanation, Steps, Suggestions, Reference Materials).",
+    "Add 'data-testid' to all buttons, inputs, and interactive elements."
+  ]
+}
