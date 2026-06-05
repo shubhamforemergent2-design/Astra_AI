@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import TurndownService from "turndown";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -393,15 +396,26 @@ function ItemDialog({ dialog, modules, topics, resources, onClose, onSave }) {
   const filteredTopics = topics.filter((t) => !form.module_id || form.module_id === "all" || t.module_id === form.module_id);
 
   const previewSteps = form.steps
-    .split("\n")
-    .map((line) => line.replace(/^\s*•\s*/, (match) => match.replace("•", "-")))
-    .join("\n");
+    ? (() => {
+        try {
+          const td = new TurndownService();
+          return td.turndown(form.steps).replace(/^\s*•\s*/gm, "- ");
+        } catch (e) {
+          return form.steps.split("\n").map((line) => line.replace(/^\s*•\s*/, (match) => match.replace("•", "-"))).join("\n");
+        }
+      })()
+    : "";
 
   const previewSuggestions = form.suggestions
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => line.trim().replace(/^\s*•\s*/, "- "))
-    .join("\n");
+    ? (() => {
+        try {
+          const td = new TurndownService();
+          return td.turndown(form.suggestions).trim();
+        } catch (e) {
+          return form.suggestions.split("\n").filter(Boolean).map((line) => line.trim().replace(/^\s*•\s*/, "- ")).join("\n");
+        }
+      })()
+    : "";
 
   const previewMarkdown = [
     form.explanation,
@@ -410,12 +424,24 @@ function ItemDialog({ dialog, modules, topics, resources, onClose, onSave }) {
   ].filter(Boolean).join("\n\n");
 
   const handleSave = () => {
-    onSave({
-      ...form,
-      steps: form.steps.split("\n").filter(Boolean),
-      suggestions: form.suggestions.split("\n").filter(Boolean),
-      keywords: form.keywords.split(",").map((k) => k.trim()).filter(Boolean),
-    });
+    try {
+      const td = new TurndownService();
+      const stepsMd = td.turndown(form.steps || "").split("\n").map((l) => l.trim()).filter(Boolean);
+      const suggMd = td.turndown(form.suggestions || "").split("\n").map((l) => l.trim()).filter(Boolean);
+      onSave({
+        ...form,
+        steps: stepsMd,
+        suggestions: suggMd,
+        keywords: form.keywords.split(",").map((k) => k.trim()).filter(Boolean),
+      });
+    } catch (e) {
+      onSave({
+        ...form,
+        steps: form.steps.split("\n").filter(Boolean),
+        suggestions: form.suggestions.split("\n").filter(Boolean),
+        keywords: form.keywords.split(",").map((k) => k.trim()).filter(Boolean),
+      });
+    }
   };
 
   return (
@@ -459,17 +485,13 @@ function ItemDialog({ dialog, modules, topics, resources, onClose, onSave }) {
           <div><Label>Question</Label><Input value={form.question} onChange={(e) => update("question", e.target.value)} data-testid="item-question-input" /></div>
           <div><Label>Explanation</Label><Textarea value={form.explanation} onChange={(e) => update("explanation", e.target.value)} className="min-h-[80px]" /></div>
           <div>
-            <Label>Steps (use Markdown — bold, italic, bullets)</Label>
-            <Textarea
-              value={form.steps}
-              onChange={(e) => update("steps", e.target.value)}
-              className="min-h-[80px]"
-              placeholder={"Write steps using Markdown. You can use bold (**text**), italics (*text*), bullets (- item) and numbered lists.\nExample:\n**Step 1:** Open Invoice Creation\n- Go to **Sales Invoices**\n- Click **Create Invoice"} />
-            <p className="text-xs mt-1" style={{ color: '#64748B' }}>Tip: Preview on the right shows how Astra will format the answer.</p>
+            <Label>Steps (rich editor — bold, italic, bullets)</Label>
+            <ReactQuill theme="snow" value={form.steps} onChange={(v) => update("steps", v)} modules={{ toolbar: [['bold','italic','underline'], [{ 'list': 'ordered'}, { 'list': 'bullet'}], ['link']] }} />
+            <p className="text-xs mt-1" style={{ color: '#64748B' }}>Tip: Use the editor toolbar to format steps; preview on the right shows how Astra will format the answer.</p>
           </div>
           <div>
-            <Label>Suggestions (one per line)</Label>
-            <Textarea value={form.suggestions} onChange={(e) => update("suggestions", e.target.value)} className="min-h-[60px]" />
+            <Label>Suggestions (rich editor)</Label>
+            <ReactQuill theme="snow" value={form.suggestions} onChange={(v) => update("suggestions", v)} modules={{ toolbar: [['bold','italic'], [{ 'list': 'bullet'}], ['link']] }} />
           </div>
           <div>
             <Label>Keywords (comma separated)</Label>
