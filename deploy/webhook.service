@@ -1,0 +1,16 @@
+[Unit]
+Description=Astra AI Preview Webhook Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/astra
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/astra/venv/bin/python /opt/astra/deploy/webhook_server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
