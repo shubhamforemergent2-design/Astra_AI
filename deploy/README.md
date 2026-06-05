@@ -41,3 +41,59 @@ python webhook_server.py
 
 - Use a dedicated deploy user with minimal rights.
 - Protect webhook with a token and use HTTPS (reverse proxy / TLS).
+
+Manual Quick Steps (copy-paste)
+--------------------------------
+
+1) Install public key on preview host (run from your machine):
+
+```bash
+# replace deploy_user and preview.example.com
+scp gha_deploy_key.pub deploy_user@preview.example.com:~
+ssh deploy_user@preview.example.com 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
+ssh deploy_user@preview.example.com 'cat ~/gha_deploy_key.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && rm ~/gha_deploy_key.pub'
+```
+
+2) Print the private key (do NOT commit this anywhere):
+
+```bash
+./deploy/print_private_key.sh
+# or
+cat /app/gha_deploy_key
+```
+
+3) Add GitHub Actions secrets using `gh` (recommended). Replace values as needed.
+
+```bash
+REPO=shubhamforemergent2-design/Astra_AI
+gh secret set DEPLOY_SSH_KEY --body "$(cat /path/to/gha_deploy_key)" --repo $REPO
+gh secret set DEPLOY_HOST --body "preview.example.com" --repo $REPO
+gh secret set DEPLOY_USER --body "deploy_user" --repo $REPO
+gh secret set DEPLOY_PATH --body "/var/www/astra" --repo $REPO
+gh secret set DEPLOY_RESTART_CMD --body "sudo systemctl restart nginx" --repo $REPO
+```
+
+If you prefer webhook mode, instead set these secrets:
+
+```bash
+gh secret set PREVIEW_WEBHOOK_URL --body "https://preview.example.com/preview-webhook" --repo $REPO
+gh secret set PREVIEW_TOKEN --body "your-secret-token" --repo $REPO
+```
+
+4) Trigger a test deploy (push an empty commit):
+
+```bash
+git commit --allow-empty -m "ci: test preview deploy" && git push origin main
+```
+
+5) Verify
+
+- Check the Actions run on GitHub (Actions → the workflow). For SSH deploy, verify files in `DEPLOY_PATH` on the preview host. For webhook mode, check the webhook server logs:
+
+```bash
+sudo journalctl -u astra-webhook -f
+# or if you run manually
+tail -f /var/log/syslog
+```
+
+If anything fails, copy the Actions log and I'll help diagnose it.
