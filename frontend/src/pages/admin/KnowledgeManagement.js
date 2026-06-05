@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -390,6 +392,23 @@ function ItemDialog({ dialog, modules, topics, resources, onClose, onSave }) {
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
   const filteredTopics = topics.filter((t) => !form.module_id || form.module_id === "all" || t.module_id === form.module_id);
 
+  const previewSteps = form.steps
+    .split("\n")
+    .map((line) => line.replace(/^\s*•\s*/, (match) => match.replace("•", "-")))
+    .join("\n");
+
+  const previewSuggestions = form.suggestions
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.trim().replace(/^\s*•\s*/, "- "))
+    .join("\n");
+
+  const previewMarkdown = [
+    form.explanation,
+    previewSteps,
+    previewSuggestions ? `**Suggestions:**\n${previewSuggestions}` : "",
+  ].filter(Boolean).join("\n\n");
+
   const handleSave = () => {
     onSave({
       ...form,
@@ -439,9 +458,22 @@ function ItemDialog({ dialog, modules, topics, resources, onClose, onSave }) {
           </div>
           <div><Label>Question</Label><Input value={form.question} onChange={(e) => update("question", e.target.value)} data-testid="item-question-input" /></div>
           <div><Label>Explanation</Label><Textarea value={form.explanation} onChange={(e) => update("explanation", e.target.value)} className="min-h-[80px]" /></div>
-          <div><Label>Steps (one per line)</Label><Textarea value={form.steps} onChange={(e) => update("steps", e.target.value)} className="min-h-[80px]" placeholder="Go to Sales > Sales Order\nClick Create New\n..." /></div>
-          <div><Label>Suggestions (one per line)</Label><Textarea value={form.suggestions} onChange={(e) => update("suggestions", e.target.value)} className="min-h-[60px]" /></div>
-          <div><Label>Keywords (comma separated)</Label><Input value={form.keywords} onChange={(e) => update("keywords", e.target.value)} placeholder="sales order, create, customer" data-testid="item-keywords-input" /></div>
+          <div>
+            <Label>Steps (one per line)</Label>
+            <Textarea
+              value={form.steps}
+              onChange={(e) => update("steps", e.target.value)}
+              className="min-h-[80px]"
+              placeholder="Use markdown-style bullets and numbered lines.\nExample:\n**Step 1:** Open Invoice Creation\n  - Go to **Sales Invoices**\n  - Click **Create Invoice**" />
+          </div>
+          <div>
+            <Label>Suggestions (one per line)</Label>
+            <Textarea value={form.suggestions} onChange={(e) => update("suggestions", e.target.value)} className="min-h-[60px]" />
+          </div>
+          <div>
+            <Label>Keywords (comma separated)</Label>
+            <Input value={form.keywords} onChange={(e) => update("keywords", e.target.value)} placeholder="sales order, create, customer" data-testid="item-keywords-input" />
+          </div>
           <div>
             <Label>Resources</Label>
             <Select value="" onValueChange={(v) => { if (!form.resource_ids.includes(v)) update("resource_ids", [...form.resource_ids, v]); }}>
@@ -458,6 +490,14 @@ function ItemDialog({ dialog, modules, topics, resources, onClose, onSave }) {
                 ) : null;
               })}
             </div>
+          </div>
+          <div>
+            <Label>Preview</Label>
+            <Card className="bg-slate-50 p-4">
+              <CardContent className="whitespace-pre-wrap text-sm">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewMarkdown}</ReactMarkdown>
+              </CardContent>
+            </Card>
           </div>
         </div>
         <DialogFooter>

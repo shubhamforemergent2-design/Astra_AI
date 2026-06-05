@@ -80,9 +80,21 @@ def build_knowledge_context(items):
         if item.get("explanation"):
             lines.append(item["explanation"])
         if item.get("steps"):
-            lines.append("Steps: " + " | ".join(f"{i+1}. {s}" for i, s in enumerate(item["steps"])))
+            lines.append("Steps:")
+            for s in item["steps"]:
+                step_line = s.rstrip()
+                if step_line.lstrip().startswith("•"):
+                    step_line = step_line.replace("•", "-", 1)
+                lines.append(step_line)
         if item.get("suggestions"):
-            lines.append("Tips: " + " | ".join(item["suggestions"]))
+            lines.append("Tips:")
+            for s in item["suggestions"]:
+                suggestion = s.strip()
+                if not suggestion:
+                    continue
+                if not suggestion.startswith(("-", "*", "•")):
+                    suggestion = f"- {suggestion}"
+                lines.append(suggestion)
         parts.append("\n".join(lines))
     return "KNOWLEDGE BASE CONTEXT:\n\n" + "\n---\n".join(parts)
 
