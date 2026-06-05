@@ -1,0 +1,53 @@
+name: Build and Notify Preview
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: |
+          npm ci || yarn install
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: |
+          # Prefer yarn if present
+          if [ -f yarn.lock ]; then yarn build; else npm run build; fi
+
+      - name: Prepare notify payload
+        id: payload
+        run: |
+          echo "{\"repository\": \"${{ github.repository }}\", \"ref\": \"${{ github.ref }}\", \"sha\": \"${{ github.sha }}\"}" > payload.json
+
+      - name: Notify Preview Webhook
+        if: ${{ secrets.PREVIEW_WEBHOOK_URL != '' }}
+        env:
+          WEBHOOK_URL: ${{ secrets.PREVIEW_WEBHOOK_URL }}
+          PREVIEW_TOKEN: ${{ secrets.PREVIEW_TOKEN }}
+        run: |
+          echo "Notifying preview at $WEBHOOK_URL"
+          if [ -n "$PREVIEW_TOKEN" ]; then
+            curl -sS -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $PREVIEW_TOKEN" -d @payload.json "$WEBHOOK_URL"
+          else
+            curl -sS -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK_URL"
+          fi
+
+      - name: Upload build artifact (optional)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build
