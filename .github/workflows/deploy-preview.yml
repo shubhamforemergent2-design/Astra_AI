@@ -45,6 +45,33 @@ jobs:
             curl -sS -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK_URL"
           fi
 
+      - name: Optional: Deploy via SSH
+        if: ${{ secrets.DEPLOY_SSH_KEY != '' && secrets.DEPLOY_HOST != '' }}
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_RESTART_CMD: ${{ secrets.DEPLOY_RESTART_CMD }}
+        run: |
+          echo "Preparing SSH key"
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts || true
+
+          echo "Syncing build to $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH"
+          # Ensure variables have sensible defaults
+          USER=${DEPLOY_USER:-root}
+          PATH_ON_HOST=${DEPLOY_PATH:-/var/www/html}
+
+          rsync -avz --delete frontend/build/ "$USER@$DEPLOY_HOST:$PATH_ON_HOST/"
+
+          if [ -n "$DEPLOY_RESTART_CMD" ]; then
+            echo "Running remote restart command"
+            ssh "$USER@$DEPLOY_HOST" "$DEPLOY_RESTART_CMD"
+          fi
+
       - name: Upload build artifact (optional)
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
