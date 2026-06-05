@@ -459,12 +459,13 @@ function ItemDialog({ dialog, modules, topics, resources, onClose, onSave }) {
           <div><Label>Question</Label><Input value={form.question} onChange={(e) => update("question", e.target.value)} data-testid="item-question-input" /></div>
           <div><Label>Explanation</Label><Textarea value={form.explanation} onChange={(e) => update("explanation", e.target.value)} className="min-h-[80px]" /></div>
           <div>
-            <Label>Steps (one per line)</Label>
+            <Label>Steps (use Markdown — bold, italic, bullets)</Label>
             <Textarea
               value={form.steps}
               onChange={(e) => update("steps", e.target.value)}
               className="min-h-[80px]"
-              placeholder="Use markdown-style bullets and numbered lines.\nExample:\n**Step 1:** Open Invoice Creation\n  - Go to **Sales Invoices**\n  - Click **Create Invoice**" />
+              placeholder={"Write steps using Markdown. You can use bold (**text**), italics (*text*), bullets (- item) and numbered lists.\nExample:\n**Step 1:** Open Invoice Creation\n- Go to **Sales Invoices**\n- Click **Create Invoice"} />
+            <p className="text-xs mt-1" style={{ color: '#64748B' }}>Tip: Preview on the right shows how Astra will format the answer.</p>
           </div>
           <div>
             <Label>Suggestions (one per line)</Label>
